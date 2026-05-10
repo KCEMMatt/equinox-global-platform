@@ -35,3 +35,23 @@ This creates/patches the `properties` table and adds temporary open RLS policies
 ## Important
 
 The RLS policies are intentionally open for early testing. Before investor/client access, replace them with proper authenticated company/team permissions.
+
+
+## v6 Acquisition Engine Usability
+
+This version adds the Level 1 sourcing workflow:
+
+- acquisition categories
+- saved source searches per category
+- category-based auto matching
+- match reasons and review warnings
+- simulated saved search import
+- database tables for future import runs and scraper queues
+
+Run this SQL in Supabase after v5:
+
+```text
+supabase/acquisition_engine_v6.sql
+```
+
+Level 3 scraper/API automation can later write into `imported_listings_queue` or directly into `properties` using the same category and match fields.
