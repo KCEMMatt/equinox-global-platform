@@ -26,7 +26,22 @@ export type SourceSearch = {
   status: string
   lastChecked: string
   newMatches: number
+  importMode?: 'saved_search' | 'single_listing' | 'apify' | 'manual'
   notes?: string
+}
+
+export type ImportedListing = {
+  id: string
+  sourceSearchId?: string
+  propertyId?: string
+  sourceName: string
+  sourceUrl: string
+  rawTitle: string
+  rawAddress: string
+  rawPrice: string
+  importStatus: string
+  reviewNotes?: string
+  createdAt?: string
 }
 
 export type CategoryMatch = {
@@ -106,11 +121,12 @@ export const defaultSourceSearches: SourceSearch[] = [
     id: 'src-core-qld',
     categoryId: 'core-industrial',
     name: 'Core Industrial — QLD $2M–$15M',
-    source: 'RealCommercial / CommercialRealEstate',
+    source: 'Saved portal searches',
     url: 'Paste saved search URL here',
-    status: 'Ready for saved URL',
+    status: 'Ready for source URL',
     lastChecked: 'Manual setup pending',
     newMatches: 0,
+    importMode: 'saved_search',
   },
   {
     id: 'src-value-national',
@@ -118,9 +134,10 @@ export const defaultSourceSearches: SourceSearch[] = [
     name: 'Value-Add Industrial — National',
     source: 'Commercial portals + agent alerts',
     url: 'Paste saved search URL here',
-    status: 'Ready for saved URL',
+    status: 'Ready for source URL',
     lastChecked: 'Manual setup pending',
     newMatches: 0,
+    importMode: 'saved_search',
   },
   {
     id: 'src-hardstand-east',
@@ -128,9 +145,10 @@ export const defaultSourceSearches: SourceSearch[] = [
     name: 'Hardstand / Yard Assets — East Coast',
     source: 'Keyword searches',
     url: 'Paste saved search URL here',
-    status: 'Ready for saved URL',
+    status: 'Ready for source URL',
     lastChecked: 'Manual setup pending',
     newMatches: 0,
+    importMode: 'saved_search',
   },
   {
     id: 'src-land-growth',
@@ -138,9 +156,10 @@ export const defaultSourceSearches: SourceSearch[] = [
     name: 'Industrial Development Land — Growth Corridors',
     source: 'Saved portal searches',
     url: 'Paste saved search URL here',
-    status: 'Ready for saved URL',
+    status: 'Ready for source URL',
     lastChecked: 'Manual setup pending',
     newMatches: 0,
+    importMode: 'saved_search',
   },
 ]
 
@@ -242,11 +261,12 @@ export async function fetchSourceSearches() {
     id: row.id,
     categoryId: row.category_id,
     name: row.name,
-    source: row.source,
-    url: row.url,
-    status: row.status || 'Active',
-    lastChecked: row.last_checked || 'Not checked yet',
+    source: row.source_name || row.source || 'Saved source',
+    url: row.source_url || row.url || '',
+    status: row.status || (row.active === false ? 'Inactive' : 'Active'),
+    lastChecked: row.last_checked_at ? new Date(row.last_checked_at).toLocaleString() : 'Not checked yet',
     newMatches: Number(row.new_matches || 0),
+    importMode: row.import_mode || 'saved_search',
     notes: row.notes || '',
   }))
 }
@@ -256,13 +276,38 @@ export async function insertSourceSearch(input: Omit<SourceSearch, 'id' | 'lastC
   const { error } = await supabase.from('source_searches').insert({
     category_id: input.categoryId,
     name: input.name,
-    source: input.source,
-    url: input.url,
+    source_name: input.source,
+    source_url: input.url,
     status: 'Active',
+    import_mode: input.importMode || 'saved_search',
     new_matches: 0,
+    active: true,
     notes: input.notes || null,
   })
   if (error) throw error
+}
+
+export async function fetchImportedListings(limit = 20) {
+  if (!isSupabaseConfigured || !supabase) return [] as ImportedListing[]
+  const { data, error } = await supabase
+    .from('imported_listings')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) return []
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    sourceSearchId: row.source_search_id,
+    propertyId: row.property_id,
+    sourceName: row.source_name || 'Unknown source',
+    sourceUrl: row.source_url || '',
+    rawTitle: row.raw_title || 'Untitled import',
+    rawAddress: row.raw_address || '',
+    rawPrice: row.raw_price || '',
+    importStatus: row.import_status || 'review_required',
+    reviewNotes: row.review_notes || '',
+    createdAt: row.created_at,
+  }))
 }
 
 export function getMockImportedListings() {

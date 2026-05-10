@@ -1,57 +1,42 @@
-# Equinox Global Platform — v5 Live Supabase Integration
+# Equinox Global Platform v7 — Level 3 Acquisition Importer
 
-This version adds live Supabase persistence for the Properties System.
+This version upgrades the Acquisition Engine from saved-search simulation into a scraper/API-ready import workflow.
 
-## What changed
+## New in v7
 
-- Properties load from Supabase when env vars are configured
-- Add Property saves directly to `properties`
-- Property notes save back to Supabase
-- Property delete is wired to Supabase
-- Dashboard metrics now read live property data
-- Local browser storage remains as a fallback if Supabase env vars are missing
+- Level 3 Import Pipeline UI
+- Source URLs per acquisition category
+- Run Import button for saved sources
+- Server route: `/api/import-source`
+- External scraper webhook route: `/api/apify-webhook`
+- Recent imports/review queue
+- Auto-created property records from imported listings
+- SQL helper: `supabase/level3_importer_v7.sql`
 
-## Required Vercel environment variables
+## Setup
 
-Add these in Vercel → Project → Settings → Environment Variables:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
-
-Then redeploy.
-
-## Required Supabase SQL
-
-Run:
+1. Upload files to GitHub.
+2. Let Vercel redeploy.
+3. Run this SQL in Supabase:
 
 ```text
-supabase/live_properties_v5.sql
+supabase/level3_importer_v7.sql
 ```
-
-This creates/patches the `properties` table and adds temporary open RLS policies for the build phase.
 
 ## Important
 
-The RLS policies are intentionally open for early testing. Before investor/client access, replace them with proper authenticated company/team permissions.
+Some listing websites block server-side fetching or disallow scraping. Use the direct importer for URLs you are allowed to fetch. For larger automated scraping, use approved APIs, partner data feeds, or a compliant external scraper that posts results into `/api/apify-webhook`.
 
+## Optional webhook token
 
-## v6 Acquisition Engine Usability
-
-This version adds the Level 1 sourcing workflow:
-
-- acquisition categories
-- saved source searches per category
-- category-based auto matching
-- match reasons and review warnings
-- simulated saved search import
-- database tables for future import runs and scraper queues
-
-Run this SQL in Supabase after v5:
+In Vercel Environment Variables, you can add:
 
 ```text
-supabase/acquisition_engine_v6.sql
+IMPORT_WEBHOOK_TOKEN=your-secret-token
 ```
 
-Level 3 scraper/API automation can later write into `imported_listings_queue` or directly into `properties` using the same category and match fields.
+Then external importers must send:
+
+```text
+x-equinox-import-token: your-secret-token
+```

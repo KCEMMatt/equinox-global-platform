@@ -26,6 +26,8 @@ type PropertyRow = {
   acquisition_stage?: string | null
   status?: string | null
   match_score?: number | null
+  source_url?: string | null
+  image_url?: string | null
   notes?: string | null
 }
 
@@ -105,6 +107,8 @@ export function toSupabase(input: PropertyInput) {
     wale: input.leaseYears || 0,
     agent_name: input.agent || null,
     listing_source: input.source || null,
+    source_url: input.sourceUrl || null,
+    image_url: input.imageUrl || null,
     acquisition_stage: input.status || 'New Lead',
     status: input.status || 'New Lead',
     match_score: score,
