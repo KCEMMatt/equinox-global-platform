@@ -73,3 +73,19 @@ Then they can log in separately and see the same portfolio data.
 - This is a clean Version 1 foundation, not the final enterprise build.
 - Email/SMS reminders are represented in-app in Phase 1. True outbound reminders should be added with Supabase Edge Functions or another scheduled service.
 - Investor Mode is a presentable view inside the app. PDF/PPT export can be added next.
+
+## Criteria Engine
+
+This version adds a new page:
+
+```text
+/criteria
+```
+
+The Criteria Engine currently runs as a polished front-end prototype using sample data. To make it persistent, run:
+
+```text
+supabase/acquisition_criteria_schema.sql
+```
+
+in your Supabase SQL Editor, then connect the page to Supabase using the existing `lib/supabase.ts` client.

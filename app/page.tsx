@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Building2, ChartNoAxesCombined, ChevronRight, DatabaseZap, FileText, Filter, Globe2, LayoutDashboard, MapPin, Plus, Search, ShieldCheck, Sparkles, Target, Users } from 'lucide-react'
 
 type Listing = {
@@ -236,6 +237,7 @@ export default function Page() {
                     <p className="label">Equinox Global Platform</p>
                     <h1 className="mt-2 text-3xl font-black tracking-tight text-[#08264A] md:text-5xl">Acquisition Engine</h1>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-black/60 md:text-base">Mark suitable commercial properties, score the opportunity, and move the best deals into the acquisition pipeline.</p>
+                    <Link href="/criteria" className="mt-4 inline-flex rounded-xl border border-[#C59A42]/40 bg-[#C59A42]/10 px-4 py-2 text-sm font-bold text-[#08264A] hover:bg-[#C59A42]/20">Open Criteria Engine</Link>
                   </div>
                   <button onClick={() => setFormOpen((value) => !value)} className="btn btn-primary flex items-center justify-center gap-2 bg-[#08264A]">
                     <Plus className="h-4 w-4" />
