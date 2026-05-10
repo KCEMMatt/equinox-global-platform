@@ -13,7 +13,7 @@ export const navItems = [
 ]
 
 export type Listing = {
-  id: number
+  id: string | number
   title: string
   address: string
   state: string

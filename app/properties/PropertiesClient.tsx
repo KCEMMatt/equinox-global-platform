@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, Filter, Plus, Save, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Building2, Filter, Plus, Save, Search, SlidersHorizontal, Sparkles, Trash2 } from 'lucide-react'
 import { m2, money, scoreLabel, seedListings, statusClass, type Listing } from '@/lib/mock-data'
-import { calculatePropertyScore, STORAGE_KEY } from '@/lib/properties'
+import { calculatePropertyScore, deleteProperty, fetchProperties, insertProperty, isLiveSupabaseEnabled, STORAGE_KEY } from '@/lib/properties'
 
 const emptyForm = {
   title: '',
@@ -28,18 +28,41 @@ function toNumber(value: string) {
 
 export default function PropertiesClient() {
   const [properties, setProperties] = useState<Listing[]>(seedListings)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [query, setQuery] = useState('')
   const [stateFilter, setStateFilter] = useState('All')
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved) setProperties(JSON.parse(saved))
+    let active = true
+
+    async function loadProperties() {
+      try {
+        setLoading(true)
+        setError('')
+        if (isLiveSupabaseEnabled()) {
+          const liveProperties = await fetchProperties()
+          if (active) setProperties(liveProperties)
+        } else {
+          const saved = window.localStorage.getItem(STORAGE_KEY)
+          if (active && saved) setProperties(JSON.parse(saved))
+        }
+      } catch (err) {
+        console.error(err)
+        if (active) setError('Could not load Supabase properties. Check the properties table and Vercel environment variables.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadProperties()
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(properties))
+    if (!isLiveSupabaseEnabled()) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(properties))
   }, [properties])
 
   const previewScore = calculatePropertyScore({
@@ -59,10 +82,9 @@ export default function PropertiesClient() {
     })
   }, [properties, query, stateFilter])
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const next: Listing = {
-      id: Date.now(),
+    const input = {
       title: form.title || 'Untitled Opportunity',
       address: form.address,
       state: form.state,
@@ -79,9 +101,27 @@ export default function PropertiesClient() {
       notes: form.notes,
     }
 
-    setProperties((current) => [next, ...current])
-    setForm(emptyForm)
-    setShowForm(false)
+    try {
+      setError('')
+      const next = await insertProperty(input)
+      setProperties((current) => [next, ...current])
+      setForm(emptyForm)
+      setShowForm(false)
+    } catch (err) {
+      console.error(err)
+      setError('Could not save this property to Supabase. Check the properties table columns and RLS policies.')
+    }
+  }
+
+  async function handleDelete(id: string | number) {
+    try {
+      setError('')
+      await deleteProperty(id)
+      setProperties((current) => current.filter((item) => item.id !== id))
+    } catch (err) {
+      console.error(err)
+      setError('Could not delete this property. Check Supabase RLS delete access.')
+    }
   }
 
   return (
@@ -92,7 +132,7 @@ export default function PropertiesClient() {
             <div>
               <div className="mb-2 flex items-center gap-2 text-[#C59A42]"><Building2 className="h-4 w-4" /><p className="text-xs font-bold uppercase tracking-[0.24em]">Properties System v1</p></div>
               <h3 className="text-2xl font-black text-[#08264A]">Add, track and score acquisition opportunities.</h3>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-black/65">This is the operational property database. For now it saves in-browser and is structured for Supabase connection next.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-black/65">This is the operational property database. It saves to Supabase when environment variables are connected, with local fallback for testing.</p>
             </div>
             <button onClick={() => setShowForm((value) => !value)} className="gold-button justify-center">
               <Plus className="h-4 w-4" /> Add Property
@@ -100,11 +140,14 @@ export default function PropertiesClient() {
           </div>
         </div>
         <div className="rounded-[2rem] border border-[#C59A42]/30 bg-[#08264A] p-5 text-white shadow-xl shadow-[#08264A]/15">
-          <p className="text-xs uppercase tracking-[0.24em] text-[#C59A42]">Live Feed</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-[#C59A42]">{isLiveSupabaseEnabled() ? 'Supabase Live' : 'Local Mode'}</p>
           <p className="mt-3 text-4xl font-black">{properties.length}</p>
           <p className="mt-1 text-sm text-white/65">Tracked opportunities</p>
         </div>
       </div>
+
+      {error ? <div className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">{error}</div> : null}
+      {loading ? <div className="rounded-3xl border border-white/70 bg-white/70 p-4 text-sm font-bold text-[#08264A]">Loading property database...</div> : null}
 
       {showForm ? (
         <form onSubmit={handleSubmit} className="rounded-[2rem] border border-[#C59A42]/30 bg-white/85 p-5 shadow-xl shadow-[#08264A]/5 backdrop-blur">
@@ -160,7 +203,7 @@ export default function PropertiesClient() {
                 <p className="mt-1 text-sm text-black/60">{item.address} · {item.agent} · {item.source}</p>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-black/65">{item.notes}</p>
               </div>
-              <div className="rounded-3xl bg-[#08264A] px-5 py-4 text-center text-white"><p className="text-xs uppercase tracking-[0.2em] text-[#C59A42]">Match</p><p className="text-3xl font-black">{item.score}%</p></div>
+              <div className="flex gap-3"><div className="rounded-3xl bg-[#08264A] px-5 py-4 text-center text-white"><p className="text-xs uppercase tracking-[0.2em] text-[#C59A42]">Match</p><p className="text-3xl font-black">{item.score}%</p></div><button onClick={() => handleDelete(item.id)} className="rounded-3xl border border-red-200 bg-red-50 px-4 text-red-700 hover:bg-red-100" title="Delete property"><Trash2 className="h-5 w-5" /></button></div>
             </div>
             <div className="mt-5 grid gap-3 md:grid-cols-5">
               <div className="card"><p className="label">Price</p><p className="font-black text-[#08264A]">{money(item.price)}</p></div>
@@ -174,7 +217,7 @@ export default function PropertiesClient() {
       </div>
 
       <div className="rounded-[2rem] border border-[#C59A42]/25 bg-[#08264A]/95 p-5 text-white shadow-xl shadow-[#08264A]/15">
-        <div className="flex items-start gap-3"><Sparkles className="mt-1 h-5 w-5 text-[#C59A42]" /><div><h3 className="font-black">Next connection: Supabase persistence</h3><p className="mt-1 text-sm leading-6 text-white/70">This interface is ready to connect to the properties table. The next pass will replace browser storage with create, read, update and delete actions in Supabase.</p></div></div>
+        <div className="flex items-start gap-3"><Sparkles className="mt-1 h-5 w-5 text-[#C59A42]" /><div><h3 className="font-black">v5 Supabase Integration</h3><p className="mt-1 text-sm leading-6 text-white/70">Properties now load from Supabase, save new opportunities, delete records and fall back to local storage when Supabase env vars are not configured.</p></div></div>
       </div>
     </div>
   )

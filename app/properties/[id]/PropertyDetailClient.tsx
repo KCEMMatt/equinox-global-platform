@@ -4,26 +4,71 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, CalendarClock, FileText, MapPin, Phone, Save, ShieldCheck, Sparkles, Target } from 'lucide-react'
 import { m2, money, scoreLabel, seedListings, statusClass, type Listing } from '@/lib/mock-data'
-import { STORAGE_KEY } from '@/lib/properties'
+import { fetchPropertyById, isLiveSupabaseEnabled, STORAGE_KEY, updatePropertyNotes } from '@/lib/properties'
 
 export default function PropertyDetailClient({ id }: { id: string }) {
   const [properties, setProperties] = useState<Listing[]>(seedListings)
+  const [property, setProperty] = useState<Listing | null>(null)
   const [notes, setNotes] = useState('')
-  const property = useMemo(() => properties.find((item) => String(item.id) === id), [properties, id])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (saved) setProperties(JSON.parse(saved))
-  }, [])
+    let active = true
 
-  useEffect(() => {
-    if (property) setNotes(property.notes)
-  }, [property])
+    async function loadProperty() {
+      try {
+        setLoading(true)
+        setError('')
+        if (isLiveSupabaseEnabled()) {
+          const liveProperty = await fetchPropertyById(id)
+          if (active) {
+            setProperty(liveProperty)
+            setNotes(liveProperty?.notes || '')
+          }
+        } else {
+          const saved = window.localStorage.getItem(STORAGE_KEY)
+          const localProperties = saved ? JSON.parse(saved) as Listing[] : seedListings
+          const localProperty = localProperties.find((item) => String(item.id) === id) || null
+          if (active) {
+            setProperties(localProperties)
+            setProperty(localProperty)
+            setNotes(localProperty?.notes || '')
+          }
+        }
+      } catch (err) {
+        console.error(err)
+        if (active) setError('Could not load this property from Supabase.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
 
-  function saveNotes() {
-    const next = properties.map((item) => item.id === property?.id ? { ...item, notes } : item)
-    setProperties(next)
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    loadProperty()
+    return () => { active = false }
+  }, [id])
+
+  async function saveNotes() {
+    if (!property) return
+    try {
+      setError('')
+      if (isLiveSupabaseEnabled()) {
+        const updated = await updatePropertyNotes(property.id, notes)
+        if (updated) setProperty(updated)
+      } else {
+        const next = properties.map((item) => item.id === property.id ? { ...item, notes } : item)
+        setProperties(next)
+        setProperty({ ...property, notes })
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      }
+    } catch (err) {
+      console.error(err)
+      setError('Could not save notes. Check Supabase update permissions.')
+    }
+  }
+
+  if (loading) {
+    return <div className="rounded-[2rem] border border-white/70 bg-white/75 p-8 shadow-xl shadow-[#08264A]/5 backdrop-blur"><h3 className="text-2xl font-black text-[#08264A]">Loading deal cockpit...</h3></div>
   }
 
   if (!property) {
@@ -31,7 +76,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
       <div className="rounded-[2rem] border border-white/70 bg-white/75 p-8 shadow-xl shadow-[#08264A]/5 backdrop-blur">
         <Link href="/properties" className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-[#C59A42]"><ArrowLeft className="h-4 w-4" /> Back to properties</Link>
         <h3 className="text-2xl font-black text-[#08264A]">Property not found</h3>
-        <p className="mt-2 text-sm text-black/60">This local record may be on another browser or has not been saved to Supabase yet.</p>
+        <p className="mt-2 text-sm text-black/60">This record was not found in the active property database.</p>{error ? <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
       </div>
     )
   }
@@ -75,6 +120,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="rounded-[2rem] border border-white/70 bg-white/80 p-5 shadow-xl shadow-[#08264A]/5 backdrop-blur lg:col-span-2">
+          {error ? <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</div> : null}
           <div className="mb-4 flex items-center justify-between gap-3">
             <div><p className="text-xs font-bold uppercase tracking-[0.24em] text-[#C59A42]">Internal Notes</p><h3 className="text-2xl font-black text-[#08264A]">Acquisition notes</h3></div>
             <button onClick={saveNotes} className="gold-button"><Save className="h-4 w-4" /> Save Notes</button>
