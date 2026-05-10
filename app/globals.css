@@ -21,3 +21,6 @@ input[type="number"] { -moz-appearance: textfield; }
 .gold-button { @apply inline-flex items-center gap-2 rounded-2xl bg-[#C59A42] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#C59A42]/20 transition hover:bg-[#B68A34]; }
 .stat-card { @apply rounded-[1.5rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-[#08264A]/5 backdrop-blur; }
 .pill { @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold; }
+.field { @apply flex flex-col gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[#08264A]/70; }
+.field input, .field select, .field textarea { @apply rounded-2xl border border-black/10 bg-white/90 px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#1E252C] outline-none transition focus:border-[#C59A42]/60 focus:ring-4 focus:ring-[#C59A42]/15; }
+.field textarea { @apply min-h-28 resize-y; }
