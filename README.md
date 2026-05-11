@@ -1,42 +1,33 @@
-# Equinox Global Platform v7 — Level 3 Acquisition Importer
+# Equinox Global Platform
 
-This version upgrades the Acquisition Engine from saved-search simulation into a scraper/API-ready import workflow.
+## v8 — Acquisition Engine Daily Workflow
 
-## New in v7
+This version improves usability before moving deeper into automation.
 
-- Level 3 Import Pipeline UI
-- Source URLs per acquisition category
-- Run Import button for saved sources
-- Server route: `/api/import-source`
-- External scraper webhook route: `/api/apify-webhook`
-- Recent imports/review queue
-- Auto-created property records from imported listings
-- SQL helper: `supabase/level3_importer_v7.sql`
+### Added
+- Auto-categorised acquisition matches
+- Match explanation cards
+- Shortlist / Review Later / Pass actions
+- Duplicate detection for imported listings
+- Import health metrics
+- Smarter review queue
+- Hardened Level 3 importer endpoint
+- External scraper webhook remains available at `/api/apify-webhook`
 
-## Setup
-
-1. Upload files to GitHub.
-2. Let Vercel redeploy.
-3. Run this SQL in Supabase:
+### Supabase
+Run this after uploading v8:
 
 ```text
-supabase/level3_importer_v7.sql
+supabase/acquisition_engine_v8_usability.sql
 ```
 
-## Important
+You should already have run the master schema. This SQL only adds the v8 fields/views/indexes.
 
-Some listing websites block server-side fetching or disallow scraping. Use the direct importer for URLs you are allowed to fetch. For larger automated scraping, use approved APIs, partner data feeds, or a compliant external scraper that posts results into `/api/apify-webhook`.
-
-## Optional webhook token
-
-In Vercel Environment Variables, you can add:
+### Environment variables
+Set these in Vercel:
 
 ```text
-IMPORT_WEBHOOK_TOKEN=your-secret-token
-```
-
-Then external importers must send:
-
-```text
-x-equinox-import-token: your-secret-token
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+IMPORT_WEBHOOK_TOKEN optional, for external scraper webhook security
 ```

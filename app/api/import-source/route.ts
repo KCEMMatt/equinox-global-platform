@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { parseListingHtml, parsedListingToProperty } from '@/lib/listing-importer'
 import { supabase } from '@/lib/supabase'
 import { toSupabase } from '@/lib/properties'
+import { getBestMatch, normalisePropertyKey } from '@/lib/acquisition-engine'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,44 @@ export async function POST(request: Request) {
     const html = await response.text()
     const parsed = parseListingHtml(html, url)
     const propertyInput = parsedListingToProperty(parsed)
+    const duplicateKey = normalisePropertyKey({ title: propertyInput.title, address: propertyInput.address, sourceUrl: propertyInput.sourceUrl })
+
+    const { data: existing } = await supabase
+      .from('properties')
+      .select('id,title,address,source_url')
+      .or(`source_url.eq.${url},address.ilike.${parsed.address || '__none__'}`)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing?.id) {
+      const { data: imported } = await supabase
+        .from('imported_listings')
+        .insert({
+          source_search_id: sourceSearchId || null,
+          property_id: existing.id,
+          source_name: 'Level 3 Importer',
+          source_url: url,
+          raw_title: parsed.title,
+          raw_address: parsed.address,
+          raw_price: parsed.priceText,
+          raw_data: { parsed, mode, duplicateKey },
+          import_status: 'duplicate',
+          duplicate_key: duplicateKey,
+          duplicate_of_property_id: existing.id,
+          confidence: 92,
+          review_notes: 'Likely duplicate detected by source URL or address. Existing property was not duplicated.',
+        })
+        .select('*')
+        .single()
+
+      if (sourceSearchId) {
+        await supabase.from('source_searches').update({ last_checked_at: new Date().toISOString(), status: 'Checked — Duplicate', new_matches: 0 }).eq('id', sourceSearchId)
+      }
+
+      return NextResponse.json({ ok: true, duplicate: true, propertyId: existing.id, importedListingId: imported?.id, parsed })
+    }
+
+    const bestMatch = getBestMatch({ id: 'preview', score: 0, ...propertyInput })
 
     const { data: property, error: propertyError } = await supabase
       .from('properties')
@@ -67,9 +106,11 @@ export async function POST(request: Request) {
         raw_title: parsed.title,
         raw_address: parsed.address,
         raw_price: parsed.priceText,
-        raw_data: { parsed, mode },
-        import_status: 'imported_to_properties',
-        review_notes: 'Imported automatically. Review score, address, price and metrics before pursuing.',
+        raw_data: { parsed, mode, bestMatch, duplicateKey },
+        import_status: bestMatch.score >= 65 ? 'imported_to_properties' : 'review_required',
+        duplicate_key: duplicateKey,
+        confidence: bestMatch.score,
+        review_notes: `Best category: ${bestMatch.category.name} (${bestMatch.score}%). Review score, address, price and metrics before pursuing.`,
       })
       .select('*')
       .single()

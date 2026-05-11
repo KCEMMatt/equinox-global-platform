@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { toSupabase } from '@/lib/properties'
 import { calculatePropertyScore, type PropertyInput } from '@/lib/properties'
+import { getBestMatch, normalisePropertyKey } from '@/lib/acquisition-engine'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const listings = Array.isArray(body) ? body : Array.isArray(body.listings) ? body.listings : [body]
     const inserted: string[] = []
+    const duplicates: string[] = []
 
     for (const item of listings) {
       const property: PropertyInput = {
@@ -46,7 +48,34 @@ export async function POST(request: Request) {
         notes: item.description || item.notes || 'Imported from external Level 3 scraper feed.',
       }
       property.score = calculatePropertyScore(property)
+      const duplicateKey = normalisePropertyKey({ title: property.title, address: property.address, sourceUrl: property.sourceUrl })
+      const { data: existing } = await supabase
+        .from('properties')
+        .select('id,title,address,source_url')
+        .or(`source_url.eq.${property.sourceUrl || '__none__'},address.ilike.${property.address || '__none__'}`)
+        .limit(1)
+        .maybeSingle()
 
+      if (existing?.id) {
+        duplicates.push(existing.id)
+        await supabase.from('imported_listings').insert({
+          property_id: existing.id,
+          source_name: property.source,
+          source_url: property.sourceUrl,
+          raw_title: property.title,
+          raw_address: property.address,
+          raw_price: String(item.price || item.asking_price || ''),
+          raw_data: { item, duplicateKey },
+          import_status: 'duplicate',
+          duplicate_key: duplicateKey,
+          duplicate_of_property_id: existing.id,
+          confidence: 92,
+          review_notes: 'External feed item looked like a duplicate. Existing property was not duplicated.',
+        })
+        continue
+      }
+
+      const bestMatch = getBestMatch({ id: 'preview', score: 0, ...property })
       const { data, error } = await supabase.from('properties').insert(toSupabase(property)).select('id').single()
       if (error) throw error
       inserted.push(data.id)
@@ -58,13 +87,15 @@ export async function POST(request: Request) {
         raw_title: property.title,
         raw_address: property.address,
         raw_price: String(item.price || item.asking_price || ''),
-        raw_data: item,
-        import_status: 'imported_to_properties',
-        review_notes: 'Imported from external scraper webhook. Review before action.',
+        raw_data: { item, bestMatch, duplicateKey },
+        import_status: bestMatch.score >= 65 ? 'imported_to_properties' : 'review_required',
+        duplicate_key: duplicateKey,
+        confidence: bestMatch.score,
+        review_notes: `Best category: ${bestMatch.category.name} (${bestMatch.score}%). Imported from external scraper webhook. Review before action.`,
       })
     }
 
-    return NextResponse.json({ ok: true, inserted })
+    return NextResponse.json({ ok: true, inserted, duplicates })
   } catch (error: any) {
     return NextResponse.json({ ok: false, error: error?.message || 'Webhook import failed' }, { status: 500 })
   }

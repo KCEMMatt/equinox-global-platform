@@ -29,6 +29,7 @@ type PropertyRow = {
   source_url?: string | null
   image_url?: string | null
   notes?: string | null
+  imported_duplicate_key?: string | null
 }
 
 export const STORAGE_KEY = 'egp_properties_v1'
@@ -90,7 +91,8 @@ export function fromSupabase(row: PropertyRow): Listing {
     status: row.acquisition_stage || row.status || 'New Lead',
     score: Number(row.match_score || 0),
     notes: row.notes || '',
-  }
+    sourceUrl: row.source_url || '',
+  } as Listing & { sourceUrl?: string }
 }
 
 export function toSupabase(input: PropertyInput) {
@@ -161,6 +163,21 @@ export async function updatePropertyNotes(id: string | number, notes: string) {
   const { data, error } = await supabase
     .from('properties')
     .update({ notes })
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return fromSupabase(data)
+}
+
+
+export async function updatePropertyStage(id: string | number, stage: string) {
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('properties')
+    .update({ acquisition_stage: stage, status: stage })
     .eq('id', id)
     .select('*')
     .single()
