@@ -1,0 +1,15 @@
+
+Equinox Global Platform v13
+Market Intelligence Map Engine
+
+Included:
+- Live Mapbox engine structure
+- Acquisition map dashboard
+- Clustering preparation
+- Logistics corridor overlays
+- Market intelligence layer
+- Vacancy/rental growth placeholders
+- Heatmap preparation
+- AI market commentary feed
+- Map-based acquisition search
+- Acquisition command centre layout
