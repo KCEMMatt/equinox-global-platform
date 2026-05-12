@@ -36,8 +36,10 @@ export function calculateDuplicateConfidence(a?: string | null, b?: string | nul
 
   const leftParts = new Set(left.split(" "))
   const rightParts = new Set(right.split(" "))
-  const intersection = [...leftParts].filter((part) => rightParts.has(part)).length
-  const union = new Set([...leftParts, ...rightParts]).size
+  const leftArray = Array.from(leftParts)
+  const rightArray = Array.from(rightParts)
+  const intersection = leftArray.filter((part) => rightParts.has(part)).length
+  const union = new Set(leftArray.concat(rightArray)).size
   const score = union ? Math.round((intersection / union) * 100) : 0
 
   return {
