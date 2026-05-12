@@ -1,0 +1,20 @@
+Equinox Global Platform v14 — Real Operational Intelligence
+
+Added:
+- Production-style import job table
+- Webhook ingestion endpoint: /api/imports/webhook
+- Dedupe endpoint: /api/imports/dedupe
+- Retry endpoint: /api/imports/retry
+- Import runner endpoint: /api/imports/run
+- AI deal ranking endpoint: /api/ai/deal-ranking
+- Operational command dashboard: /command
+- DD tasks schema
+- Property price history schema
+- Operational priority fields
+- Import job tracking and command summary view
+
+After upload:
+1. Commit to GitHub
+2. Let Vercel redeploy
+3. Run supabase/real_operational_intelligence_v14.sql
+4. Add SUPABASE_SERVICE_ROLE_KEY in Vercel for production webhook writes when ready
