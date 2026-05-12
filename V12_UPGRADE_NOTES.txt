@@ -1,0 +1,15 @@
+
+Equinox Global Platform v12
+Real Intelligence Layer
+
+Included:
+- Real import scheduler structure
+- Retry queue framework
+- Source adapter architecture
+- Acquisition memory tracking
+- Price/relist history
+- Market intelligence placeholders
+- Logistics corridor support
+- Interactive map preparation
+- AI DD extraction scaffolding
+- Improved AI investment commentary
