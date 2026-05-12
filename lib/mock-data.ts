@@ -1,8 +1,11 @@
-import { Building2, ChartNoAxesCombined, FileText, LayoutDashboard, MapPin, Settings, ShieldCheck, Target, Users } from 'lucide-react'
+import { Bell, Building2, ChartNoAxesCombined, FileText, Import, LayoutDashboard, MapPin, Settings, ShieldCheck, Target, TrendingUp, Users } from 'lucide-react'
 
 export const navItems = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Acquisitions', href: '/acquisitions', icon: Target },
+  { label: 'Priority Queue', href: '/priority-queue', icon: TrendingUp },
+  { label: 'Import Control', href: '/imports', icon: Import },
+  { label: 'Notifications', href: '/notifications', icon: Bell },
   { label: 'Criteria Engine', href: '/criteria', icon: ShieldCheck },
   { label: 'Property Feed', href: '/properties', icon: Building2 },
   { label: 'Map Intelligence', href: '/map', icon: MapPin },

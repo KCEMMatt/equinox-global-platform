@@ -1,0 +1,15 @@
+New files:
+- app/priority-queue/page.tsx
+- app/imports/page.tsx
+- app/notifications/page.tsx
+- app/api/generate-analyst-brief/route.ts
+- lib/autonomous-acquisition.ts
+- supabase/autonomous_acquisition_v11.sql
+- V11_UPGRADE_NOTES.txt
+
+Modified files:
+- lib/mock-data.ts
+- app/api/run-scheduled-imports/route.ts
+
+Build status:
+- npm run build completed successfully.

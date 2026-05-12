@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createNotification } from '@/lib/autonomous-acquisition'
 import { supabase } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
@@ -12,19 +13,34 @@ async function runImports(request: Request) {
   if (!supabase) return NextResponse.json({ ok: false, error: 'Supabase is not configured.' }, { status: 400 })
 
   const startedAt = new Date().toISOString()
-  const { data: sources, error } = await supabase
-    .from('source_searches')
-    .select('*')
-    .eq('active', true)
-    .limit(10)
+  const now = new Date().toISOString()
 
-  if (error) throw error
+  const { data: jobs } = await supabase
+    .from('scheduled_import_jobs')
+    .select('*, source_searches(*)')
+    .eq('active', true)
+    .or(`next_run_at.is.null,next_run_at.lte.${now}`)
+    .limit(20)
+
+  let sources = (jobs || []).map((job: any) => ({ job, source: job.source_searches })).filter((item: any) => item.source)
+
+  if (!sources.length) {
+    const { data: fallbackSources, error } = await supabase
+      .from('source_searches')
+      .select('*')
+      .eq('active', true)
+      .limit(10)
+    if (error) throw error
+    sources = (fallbackSources || []).map((source: any) => ({ job: null, source }))
+  }
 
   const origin = getOrigin(request)
   const results: any[] = []
 
-  for (const source of sources || []) {
-    if (!source.source_url) continue
+  for (const item of sources) {
+    const source = item.source
+    const job = item.job
+    if (!source?.source_url) continue
     try {
       const response = await fetch(`${origin}/api/import-source`, {
         method: 'POST',
@@ -34,9 +50,14 @@ async function runImports(request: Request) {
       const json = await response.json()
       results.push({ sourceId: source.id, sourceName: source.name, ok: Boolean(json.ok), result: json })
       await supabase.from('source_searches').update({ last_checked_at: new Date().toISOString(), last_error: json.ok ? null : json.error || 'Import failed' }).eq('id', source.id)
+      if (job?.id) {
+        const nextRun = new Date(Date.now() + Number(job.frequency_minutes || 60) * 60 * 1000).toISOString()
+        await supabase.from('scheduled_import_jobs').update({ last_run_at: new Date().toISOString(), next_run_at: nextRun, last_status: json.ok ? 'success' : 'failed', last_error: json.ok ? null : json.error || 'Import failed' }).eq('id', job.id)
+      }
     } catch (err: any) {
       results.push({ sourceId: source.id, sourceName: source.name, ok: false, error: err?.message || 'Import failed' })
       await supabase.from('source_searches').update({ last_checked_at: new Date().toISOString(), last_error: err?.message || 'Import failed' }).eq('id', source.id)
+      if (job?.id) await supabase.from('scheduled_import_jobs').update({ last_run_at: new Date().toISOString(), last_status: 'failed', last_error: err?.message || 'Import failed' }).eq('id', job.id)
     }
   }
 
@@ -54,7 +75,15 @@ async function runImports(request: Request) {
     details: { results },
   })
 
-  return NextResponse.json({ ok: true, checked: results.length, successful, failed, results })
+  if (successful || failed) {
+    await createNotification({
+      title: failed ? 'Import cycle completed with issues' : 'Import cycle completed',
+      message: `${results.length} source(s) checked. ${successful} successful, ${failed} failed.`,
+      notification_type: failed ? 'Import Warning' : 'Import Health',
+    })
+  }
+
+  return NextResponse.json({ ok: true, processed: results.length, checked: results.length, successful, failed, results })
 }
 
 export async function POST(request: Request) {

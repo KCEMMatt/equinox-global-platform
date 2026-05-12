@@ -1,0 +1,17 @@
+Equinox Global Platform v11 — Autonomous Acquisition Assistant
+
+Added:
+- Priority Queue page: /priority-queue
+- Import Control page: /imports
+- Notifications page: /notifications
+- Autonomous acquisition helper library
+- Scheduled import job support
+- AI deal analyst brief endpoint
+- Improved scheduled import endpoint with job tracking and notifications
+- Supabase SQL: supabase/autonomous_acquisition_v11.sql
+
+After uploading to GitHub, run:
+supabase/autonomous_acquisition_v11.sql
+
+Recommended next step:
+Configure Vercel Cron to call /api/run-scheduled-imports on a schedule.
