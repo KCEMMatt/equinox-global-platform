@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/run-scheduled-imports",
+      "schedule": "0 20 * * *"
+    }
+  ]
+}

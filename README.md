@@ -1,33 +1,31 @@
-# Equinox Global Platform
+# Equinox Global Platform v9 — AI Acquisition Automation
 
-## v8 — Acquisition Engine Daily Workflow
+This version builds on v8 and adds the first automation layer for the Acquisition Engine.
 
-This version improves usability before moving deeper into automation.
+## Added
 
-### Added
-- Auto-categorised acquisition matches
-- Match explanation cards
-- Shortlist / Review Later / Pass actions
-- Duplicate detection for imported listings
-- Import health metrics
-- Smarter review queue
-- Hardened Level 3 importer endpoint
-- External scraper webhook remains available at `/api/apify-webhook`
+- Scheduled import architecture
+- Manual "Run Scheduled Imports" action
+- AI-style property enrichment endpoint
+- Risk flags and opportunity insights
+- Daily acquisition feed inside Acquisition Engine
+- Notifications table support
+- Price/history tracking foundation
+- Vercel cron config
 
-### Supabase
-Run this after uploading v8:
+## New API Routes
 
-```text
-supabase/acquisition_engine_v8_usability.sql
-```
+- `/api/run-scheduled-imports`
+- `/api/ai-enrich-property`
 
-You should already have run the master schema. This SQL only adds the v8 fields/views/indexes.
+## SQL to run
 
-### Environment variables
-Set these in Vercel:
+Run this in Supabase after upload:
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-IMPORT_WEBHOOK_TOKEN optional, for external scraper webhook security
+supabase/acquisition_ai_v9.sql
 ```
+
+## Notes
+
+The enrichment logic is currently rule-based so it works without an OpenAI API key. Later, this can be upgraded to true AI document/listing analysis once the import pipeline is stable.

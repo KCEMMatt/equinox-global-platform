@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ExternalLink, Eye, Play, Plus, Radar, Search, Target, Trash2, Zap } from 'lucide-react'
+import { AlertTriangle, BellRing, BrainCircuit, CalendarClock, CheckCircle2, ExternalLink, Eye, Play, Plus, Radar, Search, Sparkles, Target, Trash2, Zap } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import { m2, money, type Listing } from '@/lib/mock-data'
 import { fetchProperties, insertProperty, updatePropertyStage } from '@/lib/properties'
@@ -20,6 +20,7 @@ import {
   type ImportedListing,
   type SourceSearch,
 } from '@/lib/acquisition-engine'
+import { buildDailyAcquisitionFeed } from '@/lib/ai-enrichment'
 
 export default function AcquisitionsPage() {
   const [activeCategory, setActiveCategory] = useState(defaultCategories[0].id)
@@ -29,6 +30,8 @@ export default function AcquisitionsPage() {
   const [loading, setLoading] = useState(true)
   const [busySource, setBusySource] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [busyAutomation, setBusyAutomation] = useState(false)
+  const [automationResult, setAutomationResult] = useState('')
   const [sourceForm, setSourceForm] = useState({ name: '', source: 'Saved Listing / Search URL', url: '', importMode: 'single_listing' as SourceSearch['importMode'] })
 
   const category = defaultCategories.find((item) => item.id === activeCategory) || defaultCategories[0]
@@ -53,6 +56,7 @@ export default function AcquisitionsPage() {
   const reviewQueue = ranked.filter((item) => item.match.score >= 45 && item.match.score < 65 && !['Passed', 'Ignored'].includes(item.property.status))
   const activeSources = sources.filter((item) => item.categoryId === activeCategory)
   const health = getImportHealth(sources, imports)
+  const dailyFeed = useMemo(() => buildDailyAcquisitionFeed(properties), [properties])
 
   async function saveSourceSearch() {
     if (!sourceForm.name || !sourceForm.url) return setMessage('Add a source name and URL first.')
@@ -118,6 +122,40 @@ export default function AcquisitionsPage() {
     }
   }
 
+  async function runScheduledImports() {
+    setBusyAutomation(true)
+    setAutomationResult('Running scheduled import workflow...')
+    try {
+      const res = await fetch('/api/run-scheduled-imports', { method: 'POST' })
+      const json = await res.json()
+      if (!json.ok) throw new Error(json.error || 'Scheduled import failed')
+      setAutomationResult(`Checked ${json.checked} sources · ${json.successful} successful · ${json.failed} failed`)
+      await refresh()
+    } catch (error: any) {
+      setAutomationResult(error?.message || 'Scheduled import failed')
+    } finally {
+      setBusyAutomation(false)
+    }
+  }
+
+  async function enrichTopOpportunity() {
+    const top = dailyFeed[0]?.property
+    if (!top) return setAutomationResult('No property available to enrich yet.')
+    setBusyAutomation(true)
+    setAutomationResult(`Generating AI-style acquisition summary for ${top.title}...`)
+    try {
+      const res = await fetch('/api/ai-enrich-property', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ propertyId: top.id }) })
+      const json = await res.json()
+      if (!json.ok) throw new Error(json.error || 'AI enrichment failed')
+      setAutomationResult('AI summary, risk flags and opportunity insights saved to Supabase.')
+      await refresh()
+    } catch (error: any) {
+      setAutomationResult(error?.message || 'AI enrichment failed')
+    } finally {
+      setBusyAutomation(false)
+    }
+  }
+
   return (
     <AppShell title="Acquisition Engine" eyebrow="Level 3 Daily Workflow" description="Automatically intake source opportunities, detect duplicates, score them against categories, and move the best deals into action.">
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
@@ -127,6 +165,25 @@ export default function AcquisitionsPage() {
             <Metric label="Top matches" value={topMatches.length} />
             <Metric label="Review required" value={health.reviewRequired + reviewQueue.length} />
             <Metric label="Duplicates" value={health.duplicates} />
+          </div>
+
+          <div className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-[#08264A]/5 backdrop-blur">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-[#08264A]"><Sparkles className="h-5 w-5 text-[#C59A42]" /><p className="label text-[#C59A42]">v9 Automation</p></div>
+                <h3 className="mt-2 text-2xl font-black text-[#08264A]">Daily acquisition feed</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-black/55">The engine ranks live properties, prepares AI-style summaries, flags risks and can run the scheduled importer manually while cron automation is being finalised.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={runScheduledImports} disabled={busyAutomation} className="rounded-2xl bg-[#08264A] px-4 py-3 text-sm font-black text-[#F5D58A] disabled:opacity-50"><CalendarClock className="mr-2 inline h-4 w-4" />Run Scheduled Imports</button>
+                <button onClick={enrichTopOpportunity} disabled={busyAutomation} className="rounded-2xl bg-[#C59A42] px-4 py-3 text-sm font-black text-[#08264A] disabled:opacity-50"><BrainCircuit className="mr-2 inline h-4 w-4" />Enrich Top Deal</button>
+              </div>
+            </div>
+            {automationResult ? <p className="mt-4 rounded-2xl border border-[#C59A42]/25 bg-[#C59A42]/10 p-3 text-sm font-bold text-[#08264A]"><BellRing className="mr-2 inline h-4 w-4" />{automationResult}</p> : null}
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {dailyFeed.slice(0, 4).map((item) => <div key={`feed-${item.property.id}`} className="rounded-3xl border border-black/10 bg-white p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="font-black text-[#08264A]">{item.property.title}</h4><p className="mt-1 text-xs text-black/55">{item.match.category.name} · {item.match.score}% match</p></div><span className={`rounded-full px-3 py-1 text-xs font-black ${item.enrichment.notificationPriority === 'high' ? 'bg-[#C59A42] text-[#08264A]' : 'bg-[#F5F0E8] text-[#08264A]'}`}>{item.enrichment.notificationPriority}</span></div><p className="mt-3 text-xs leading-5 text-black/60">{item.enrichment.aiSummary}</p></div>)}
+              {!dailyFeed.length ? <EmptyState text="No daily feed items yet. Add/import properties first." /> : null}
+            </div>
           </div>
 
           <div className="rounded-[2rem] border border-white/70 bg-white/75 p-4 shadow-xl shadow-[#08264A]/5 backdrop-blur">

@@ -1,0 +1,11 @@
+New files:
+- app/api/run-scheduled-imports/route.ts
+- app/api/ai-enrich-property/route.ts
+- lib/ai-enrichment.ts
+- supabase/acquisition_ai_v9.sql
+- vercel.json
+- CHANGED_FILES_v9.txt
+
+Modified files:
+- app/acquisitions/page.tsx
+- README.md
