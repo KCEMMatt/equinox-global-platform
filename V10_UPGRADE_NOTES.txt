@@ -1,0 +1,20 @@
+
+Equinox Global Platform v10
+Intelligent Acquisition Engine
+
+New Features:
+- Institutional AI summaries
+- Acquisition confidence scoring
+- Opportunity flags
+- Relist / duplicate intelligence
+- AI investment notes
+- Why This Matters engine
+- Improved review queue
+- Smarter acquisition feed
+- Improved notification logic
+
+Suggested next phase:
+- Autonomous imports
+- Market overlays
+- AI DD extraction
+- Investor portal
